@@ -20,17 +20,17 @@ def quarantine_script(script_path):
             break
         except PermissionError:
             time.sleep(0.3)
+        print(
+            f'Failed to remove the suspicious file, please check this Directory "{script_path}"'
+        )
 
-    print(
-        f'Failed to remove the suspicious file, please check this Directory "{script_path}"'
-    )
     return new_path
 
 
 # ==============================
 # Main Monitor
 # ==============================
-SUSPICIOUS_MODULES = ["keyboard", "pynput", "requests"]
+SUSPICIOUS_MODULES = ["keyboard", "pynput", "requests", "subprocess"]
 SAFE_SCRIPTS = ["anti_keylogger.py"]
 
 
@@ -49,7 +49,7 @@ def scan_processes():
                         with open(script, "r", encoding="latin-1") as f:
                             data = f.read()
                             score = sum(mod in data for mod in SUSPICIOUS_MODULES)
-                            if score >= 2:
+                            if score >= 1:
                                 if not any(s in script for s in SAFE_SCRIPTS):
                                     print(
                                         "⚠ Suspicious Python Script Detected:", script
