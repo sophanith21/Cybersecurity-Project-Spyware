@@ -35,11 +35,6 @@ class StartupMonitor:
                 os.remove(shortcut_path)
                 print(f"🗑️  Removed shortcut: {os.path.basename(shortcut_path)}")
             
-            # Remove target
-            if os.path.exists(target_path):
-                os.remove(target_path)
-                print(f"🗑️  Removed target: {os.path.basename(target_path)}")
-            
             print(f"🚫 Blocked: {reason}")
             
         except Exception as e:

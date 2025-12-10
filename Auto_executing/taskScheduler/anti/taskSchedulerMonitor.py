@@ -74,7 +74,7 @@ def extract_exe_path(command):
     if not command:
         return None
     
-    # Method 1: Look for .exe directly
+    # Look for .exe directly
     match = re.search(r'([a-zA-Z]:[\\/][^"\']*\.exe)', command, re.IGNORECASE)
     if match:
         path = match.group(1)

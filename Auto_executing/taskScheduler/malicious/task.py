@@ -61,21 +61,8 @@ def create_scheduled_task():
             
     except Exception as e:
         print(f"[-] Exception occurred: {e}")
-        return False
-
-def verify_task_creation(task_name):
-    """Verifies if the task was created successfully."""
-    try:
-        result = subprocess.run(
-            ['schtasks', '/query', '/tn', task_name, '/fo', 'list'],
-            capture_output=True, text=True, check=True
-        )
-        print(f"[+] Verification successful - task exists in Task Scheduler")
-        return True
-    except subprocess.CalledProcessError:
-        print(f"[-] Verification failed - task not found in Task Scheduler")
-        return False
-# verify
+        return False\
+        
 def check_task_in_scheduler_gui():
     """Instructions for manually checking the task"""
     print("\n" + "="*50)
@@ -99,7 +86,6 @@ if __name__ == "__main__":
     task_name = "1SystemMaintenance"
     
     if create_scheduled_task():
-        verify_task_creation(task_name)
         check_task_in_scheduler_gui()
     else:
         print("[-] Task creation failed.")
